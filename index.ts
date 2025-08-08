@@ -1,6 +1,5 @@
 import { ApolloServer } from "@apollo/server";
 import { startStandaloneServer } from "@apollo/server/standalone";
-import axios from "axios";
 import { Pool } from "pg";
 
 const pool = new Pool({
@@ -14,45 +13,64 @@ const pool = new Pool({
 const main = async () => {
   const server = new ApolloServer({
     typeDefs: `#graphql
-        type Todo {
-            userId: String!
+        type Post {
+            userid: ID!
             id: ID!
             title: String!
+            description: String!
             user: User!
-            completed: Boolean!
+            iscompleted: Boolean!
         }
         type User {
             id: String!
             email: String!
             name: String!
-            todos: [Todo!]!
+            posts: [Post!]!
         }
         type Query {
-            getTodo(id: ID!): Todo!
+            getPost(id: ID!): Post!
+            getPosts: [Post!]!
             getUser(id: ID!): User!
         }
         type Mutation {
             createUser (email: String!, name: String!): User!
+            createPost (title: String!, description: String!, isCompleted: Boolean!, userid: ID!): Post!
         }
     `,
     resolvers: {
       Query: {
-        getTodo: async (_parent: any, arg: { id: string }) => {
+        getPost: async (_parent: any, args: { id: number }) => {
           try {
-            const { data } = await axios.get(
-              `https://jsonplaceholder.typicode.com/todos/${arg.id}`
+            const result = await pool.query(
+              `
+                    SELECT * FROM posts WHERE id = $1
+                `,
+              [args.id]
             );
-            return data;
+            return result.rows[0];
           } catch (error) {
             return error;
           }
         },
-        getUser: async (_parent: any, arg: { id: string }) => {
+        getPosts: async () => {
           try {
-            const { data } = await axios.get(
-              `https://jsonplaceholder.typicode.com/users/${arg.id}`
+            const result = await pool.query(`
+                        SELECT * FROM posts
+                    `);
+            return result.rows;
+          } catch (error) {
+            return error;
+          }
+        },
+        getUser: async (_parent: any, args: { id: string }) => {
+          try {
+            const result = await pool.query(
+              `
+                SELECT * FROM users WHERE id = $1
+                `,
+              [args.id]
             );
-            return data;
+            return result.rows[0];
           } catch (error) {
             return error;
           }
@@ -77,26 +95,54 @@ const main = async () => {
             return error;
           }
         },
-      },
-      Todo: {
-        user: async (parent: { userId: string }) => {
+        createPost: async (
+          _,
+          args: {
+            title: string;
+            description: string;
+            iscompleted: boolean;
+            userid: number;
+          }
+        ) => {
           try {
-            const { data } = await axios.get(
-              `https://jsonplaceholder.typicode.com/users/${parent.userId}`
+            const result = await pool.query(
+              `
+                    INSERT INTO posts (title,description,iscompleted,userid) VALUES ($1, $2, $3, $4) RETURNING *
+                    `,
+              [args.title, args.description, args.iscompleted, args.userid]
             );
-            return data;
+            return result.rows[0];
+          } catch (error) {
+            return error;
+          }
+        },
+      },
+      Post: {
+        user: async (parent: { userid: number }) => {
+          console.log(parent);
+          try {
+            const result = await pool.query(
+              `
+                SELECT * FROM users WHERE ID = $1
+                `,
+              [parent.userid]
+            );
+            return result.rows[0];
           } catch (error) {
             return error;
           }
         },
       },
       User: {
-        todos: async (parent: { id: string }) => {
+        posts: async (parent: { id: string }) => {
           try {
-            const { data } = await axios.get(
-              `https://jsonplaceholder.typicode.com/todos?userId=${parent.id}`
+            const result = await pool.query(
+              `
+                SELECT * FROM posts WHERE userid = $1
+                `,
+              [parent.id]
             );
-            return data;
+            return result.rows;
           } catch (error) {
             return error;
           }
