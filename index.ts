@@ -32,9 +32,14 @@ const main = async () => {
             getPosts: [Post!]!
             getUser(id: ID!): User!
         }
+        input UpdateUserInput {
+          email: String
+          name: String
+        }
         type Mutation {
             createUser (email: String!, name: String!): User!
             createPost (title: String!, description: String!, isCompleted: Boolean!, userid: ID!): Post!
+            updateUser (id: ID!, input: UpdateUserInput!): User!
         }
     `,
     resolvers: {
@@ -110,6 +115,29 @@ const main = async () => {
                     INSERT INTO posts (title,description,iscompleted,userid) VALUES ($1, $2, $3, $4) RETURNING *
                     `,
               [args.title, args.description, args.iscompleted, args.userid]
+            );
+            return result.rows[0];
+          } catch (error) {
+            return error;
+          }
+        },
+        updateUser: async (
+          _,
+          args: { id: string; input: Record<string, any> }
+        ) => {
+          const fields = Object.keys(args.input);
+          const values = Object.values(args.input);
+          const setClause = fields
+            .map((field, idx) => `${field} = $${idx + 1}`)
+            .join(", ");
+          try {
+            const result = await pool.query(
+              `
+                UPDATE users SET ${setClause} WHERE id = $${
+                fields.length + 1
+              } RETURNING *
+              `,
+              [...values, args.id]
             );
             return result.rows[0];
           } catch (error) {
