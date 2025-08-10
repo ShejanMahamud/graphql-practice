@@ -40,6 +40,7 @@ const main = async () => {
             createUser (email: String!, name: String!): User!
             createPost (title: String!, description: String!, isCompleted: Boolean!, userid: ID!): Post!
             updateUser (id: ID!, input: UpdateUserInput!): User!
+            deleteUser (id: ID!): String!
         }
     `,
     resolvers: {
@@ -140,6 +141,19 @@ const main = async () => {
               [...values, args.id]
             );
             return result.rows[0];
+          } catch (error) {
+            return error;
+          }
+        },
+        deleteUser: async (__dirname, args: { id: string }) => {
+          try {
+            await pool.query(
+              `
+              DELETE FROM users WHERE id = $1  
+              `,
+              [args.id]
+            );
+            return "User deleted Successfully";
           } catch (error) {
             return error;
           }
